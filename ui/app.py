@@ -1,14 +1,13 @@
 import flet as ft
 from core.manager import DownloadManager
-import threading
-import time
 import os
 import asyncio
-import re
+import re #正则表达式
 import json
-from pathlib import Path
+from pathlib import Path #文件路径工具
 
 def get_spotdl_config_path():
+    #os.path.expanduser("~"):把~解析为登录用户文件夹
     return os.path.join(os.path.expanduser("~"), ".config", "spotdl", "config.json")
 
 def load_spotdl_config():
@@ -16,6 +15,7 @@ def load_spotdl_config():
     if os.path.exists(path):
         try:
             with open(path, "r") as f:
+                #从文件对象读取JSON文本，直接转换成Python对象（dict / list）
                 return json.load(f)
         except:
             pass
@@ -23,15 +23,17 @@ def load_spotdl_config():
 
 def save_spotdl_config(data):
     path = get_spotdl_config_path()
+    #建父目录
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
+        #将data写入文件，缩进为4
         json.dump(data, f, indent=4)
 
 async def main_app(page: ft.Page):
     page.title = "anydl"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 0
-    page.bgcolor = ft.Colors.GREY_50
+    page.bgcolor = ft.Colors.GREY_50 #设置背景颜色
 
     manager = DownloadManager()
 
@@ -39,14 +41,17 @@ async def main_app(page: ft.Page):
     spotdl_config = load_spotdl_config()
     current_client_id = spotdl_config.get("client_id", "")
     current_client_secret = spotdl_config.get("client_secret", "")
+    #检测到公用id，清空重新生成
     if current_client_id == "5f573c9620494bae87890c0f08a60293":
         current_client_id = ""
         current_client_secret = ""
 
+    #输入框
     client_id_field = ft.TextField(label="Spotify Client ID", value=current_client_id, password=True, can_reveal_password=True)
     client_secret_field = ft.TextField(label="Spotify Client Secret", value=current_client_secret, password=True, can_reveal_password=True)
 
     def save_settings_click(e):
+        #strip去掉首尾空格 带默认公用id密匙
         spotdl_config["client_id"] = client_id_field.value.strip() or "5f573c9620494bae87890c0f08a60293"
         spotdl_config["client_secret"] = client_secret_field.value.strip() or "212476d9b0f3472eaa762d90b19b0ba8"
         save_spotdl_config(spotdl_config)
@@ -56,7 +61,8 @@ async def main_app(page: ft.Page):
                 spotify_api_info_text.value = "Currently using: Custom API"
             else:
                 spotify_api_info_text.value = "Currently using: Default Built-in API (May face rate limits)"
-        
+
+        #关闭设置弹窗
         settings_dlg.open = False
         page.update()
 
@@ -70,12 +76,14 @@ async def main_app(page: ft.Page):
             client_secret_field
         ], tight=True),
         actions=[
+            #setattr():赋值
             ft.TextButton("Cancel", on_click=lambda e: setattr(settings_dlg, 'open', False) or page.update()),
             ft.TextButton("Save", on_click=save_settings_click)
         ]
     )
 
     def open_settings(e):
+        #必须先放进overlay才能用.open=True显示
         if settings_dlg not in page.overlay:
             page.overlay.append(settings_dlg)
         settings_dlg.open = True
@@ -83,14 +91,15 @@ async def main_app(page: ft.Page):
 
     settings_btn = ft.IconButton(
         icon=ft.Icons.SETTINGS,
+        #tooltip:鼠标悬浮时弹出的提示
         tooltip="Settings",
         on_click=open_settings
     )
 
-    # Determine default download path
+    # Determine default download path 确定默认下载路径
     default_download_path = os.path.join(os.path.expanduser("~"), "Downloads", "ANYDL")
 
-    # Removed FilePicker for Web Compatibility
+    # Removed FilePicker for Web Compatibility 移除文件选择器，提升网页兼容性
 
     TOOLS = {
         "spotdl": {
@@ -144,7 +153,7 @@ async def main_app(page: ft.Page):
         }
     }
     
-    current_tool_id = "yt-dlp" # Default placeholder
+    current_tool_id = "yt-dlp" # Default placeholder 默认占位符
 
     # -------------------------------------------------------------
     # Shared State & Elements
@@ -175,7 +184,7 @@ async def main_app(page: ft.Page):
         content=ft.Row([
             ft.Text("Download", color=ft.Colors.WHITE, weight=ft.FontWeight.W_500, size=16),
             ft.Icon(ft.Icons.DOWNLOAD, color=ft.Colors.WHITE, size=20)
-        ], alignment=ft.MainAxisAlignment.CENTER, spacing=5),
+        ], alignment=ft.MainAxisAlignment.CENTER, spacing=5),#设置控件居中
         padding=ft.Padding.only(left=20, right=20),
         border_radius=ft.BorderRadius.only(top_right=4, bottom_right=4),
         height=50,
@@ -198,14 +207,16 @@ async def main_app(page: ft.Page):
         visible=False
     )
 
+    #另开文件夹勾选框
     playlist_checkbox = ft.Checkbox(label="Create separate folder for playlist", value=False)
     options_row = ft.Row([format_dropdown, playlist_checkbox], alignment=ft.MainAxisAlignment.CENTER, spacing=20)
     
     spotify_api_info_text = ft.Text("", size=12, color=ft.Colors.GREY_600, visible=False, italic=True)
 
+    #日志 自动滚动到底部
     log_area = ft.ListView(expand=True, spacing=5, auto_scroll=True)
     
-    # Progress Bar (hidden by default, starts indeterminate)
+    # Progress Bar (hidden by default, starts indeterminate) 进度条（默认隐藏，初始为不确定模式）
     progress_bar = ft.ProgressBar(width=400, color=ft.Colors.BLUE_400, bgcolor=ft.Colors.GREY_200, value=None)
     progress_text = ft.Text("0%", size=12, color=ft.Colors.GREY_600)
     progress_container = ft.Container(
@@ -228,7 +239,7 @@ async def main_app(page: ft.Page):
     # -------------------------------------------------------------
     # Logic & Background Processes
     # -------------------------------------------------------------
-    # State for tracking playlist progress
+    # State for tracking playlist progress 用于跟踪播放列表进度的状态
     playlist_state = {"total": 0, "downloaded": 0}
 
     def log_message(msg_type, msg, batch_update=False):
@@ -242,9 +253,9 @@ async def main_app(page: ft.Page):
             
         log_area.controls.append(ft.Text(f"[{msg_type}] {msg}", color=color, font_family="monospace", size=12))
         
-        # Parse percentage from log output
+        # Parse percentage from log output 从日志输出中解析百分比
         if msg_type in ["STDOUT", "STDERR"]:
-            # 1. Look for explicit percentages (e.g. yt-dlp)
+            # 1. Look for explicit percentages (e.g. yt-dlp) 查找明确的百分比（例如 yt-dlp）
             match = re.search(r'(\d{1,3}(?:\.\d+)?)%', msg)
             if match:
                 try:
@@ -255,22 +266,23 @@ async def main_app(page: ft.Page):
                 except ValueError:
                     pass
             
-            # 2. Look for spotdl playlist total
+            # 2. Look for spotdl playlist total 查找 spotdl 播放列表总数
             total_match = re.search(r'Found (\d+) songs', msg)
             if total_match:
+                #.group(1):第一个括号内的内容(str)
                 playlist_state["total"] = int(total_match.group(1))
                 playlist_state["downloaded"] = 0
                 progress_bar.value = 0.0
                 progress_text.value = "0%"
 
-            # 3. Look for spotdl downloaded song
+            # 3. Look for spotdl downloaded song 查找 spotdl 下载的歌曲
             if "Downloaded \"" in msg and playlist_state["total"] > 0:
                 playlist_state["downloaded"] += 1
                 pct = (playlist_state["downloaded"] / playlist_state["total"]) * 100
                 progress_bar.value = pct / 100.0
                 progress_text.value = f"{pct:.1f}%"
 
-        # Hide loading spinner if process finished
+        # Hide loading spinner if process finished 进程完成时隐藏加载动画
         if "Process finished" in msg or msg_type == "ERROR":
             progress_bar.visible = False
             progress_container.visible = False
@@ -289,6 +301,7 @@ async def main_app(page: ft.Page):
                 else:
                     msg_text = "Download completed successfully!"
                     
+                #弹窗提示框
                 dlg = ft.AlertDialog(title=ft.Text("Success"), content=ft.Text(msg_text))
                 def close_success(e, d=dlg):
                     d.open = False
@@ -337,13 +350,14 @@ async def main_app(page: ft.Page):
         playlist_checkbox.disabled = True
         page.update()
 
-        # Map UI tool IDs to actual CLI engines
+        # Map UI tool IDs to actual CLI engines 将界面工具ID映射至实际命令行引擎
         engine = current_tool_id
         if current_tool_id in ["tiktok", "facebook", "instagram", "twitter"]:
             engine = "yt-dlp"
 
         command = [engine]
         if engine == "yt-dlp":
+            #格式设置
             if format_dropdown.value == "audio":
                 command.extend(["-x", "--audio-format", "mp3"])
             elif format_dropdown.value == "video":
@@ -364,6 +378,7 @@ async def main_app(page: ft.Page):
 
     download_btn_container.on_click = start_download
 
+    #轮询队列
     async def poll_queue(e=None):
         while True:
             messages = manager.get_messages()
@@ -383,6 +398,7 @@ async def main_app(page: ft.Page):
         home_view.visible = True
         page.update()
 
+    #切换主题
     def toggle_theme(e):
         if page.theme_mode == ft.ThemeMode.LIGHT:
             page.theme_mode = ft.ThemeMode.DARK
@@ -441,6 +457,7 @@ async def main_app(page: ft.Page):
     )
 
     def show_tool(tool_id):
+        #拿到外层函数定义的变量
         nonlocal current_tool_id
         current_tool_id = tool_id
         t = TOOLS[tool_id]
@@ -522,7 +539,7 @@ async def main_app(page: ft.Page):
     # Home View
     # -------------------------------------------------------------
     cards = []
-    for t_id, t_data in TOOLS.items():
+    for t_id, t_data in TOOLS.items(): #键值对
         card = ft.Container(
             content=ft.Column([
                 ft.Icon(t_data["icon"], size=48, color=t_data["color"]),
@@ -562,10 +579,10 @@ async def main_app(page: ft.Page):
     )
 
     # -------------------------------------------------------------
-    # Header, Footer & Assembly
+    # Header, Footer & Assembly 页眉、页脚与组件
     # -------------------------------------------------------------
     logo_dl_text = ft.TextSpan("DL", style=ft.TextStyle(color=ft.Colors.BLACK, weight=ft.FontWeight.BOLD, size=22))
-    
+
     header = ft.Container(
         content=ft.Row([
             ft.Container(
