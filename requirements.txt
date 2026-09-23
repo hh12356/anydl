@@ -3,3 +3,4 @@ spotdl==4.5.0
 yt-dlp
 scdl
 setuptools<70.0.0
+flet-desktop
