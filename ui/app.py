@@ -264,8 +264,10 @@ async def main_app(page: ft.Page):
             color = ft.Colors.BLUE_400
         elif msg_type == "STDERR":
             color = ft.Colors.ORANGE_400
-            
-        log_area.controls.append(ft.Text(f"[{msg_type}] {msg}", color=color, font_family="monospace", size=12))
+
+        #append进log，加载进度除外
+        if not re.search(r'(\d{1,3}(?:\.\d+)?)%', msg):
+            log_area.controls.append(ft.Text(f"[{msg_type}] {msg}", color=color, font_family="monospace", size=12))
         
         # Parse percentage from log output 从日志输出中解析百分比
         if msg_type in ["STDOUT", "STDERR"]:
