@@ -4,6 +4,8 @@ import queue
 import os #操作系统底层接口
 import sys #操作python运行环境
 import shutil #实现高级文件操作
+import time
+
 
 class DownloadManager:
     #构造函数
@@ -108,7 +110,10 @@ class DownloadManager:
         """Reads from a stream and puts lines into the queue, handling carriage returns."""
         buffer = ""
         while True:
-            char = stream.read(1)
+            try:
+                char = stream.read(1)
+            except UnicodeDecodeError:
+                continue
             if not char:
                 if buffer:
                     self.output_queue.put((stream_type, buffer.strip()))
