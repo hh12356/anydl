@@ -102,6 +102,20 @@ async def main_app(page: ft.Page):
     # Removed FilePicker for Web Compatibility 移除文件选择器，提升网页兼容性
 
     TOOLS = {
+        "bilibili": {
+            "name": "Bilibili Downloader",
+            "desc": "Bilibili to Video/Audio",
+            "hint": "Paste Bilibili URL",
+            "color": ft.Colors.PINK_400,
+            "icon": ft.Icons.LIVE_TV
+        },
+        "douyin": {
+            "name": "Douyin Downloader",
+            "desc": "Douyin to Video/Audio",
+            "hint": "Paste Douyin URL",
+            "color": ft.Colors.BLACK,
+            "icon": ft.Icons.TIKTOK
+        },
         "spotdl": {
             "name": "Spotify Downloader",
             "desc": "Spotify track/playlist to MP3",
@@ -115,13 +129,6 @@ async def main_app(page: ft.Page):
             "hint": "Paste YouTube URL or search",
             "color": ft.Colors.RED_600,
             "icon": ft.Icons.VIDEO_LIBRARY
-        },
-        "scdl": {
-            "name": "SoundCloud Downloader",
-            "desc": "SoundCloud to MP3",
-            "hint": "Paste SoundCloud URL (Track or Playlist)",
-            "color": ft.Colors.ORANGE_700,
-            "icon": ft.Icons.CLOUD_DOWNLOAD
         },
         "tiktok": {
             "name": "TikTok Downloader",
@@ -150,7 +157,14 @@ async def main_app(page: ft.Page):
             "hint": "Paste X/Twitter URL",
             "color": ft.Colors.BLACK,
             "icon": ft.Icons.WEB
-        }
+        },
+        "scdl": {
+            "name": "SoundCloud Downloader",
+            "desc": "SoundCloud to MP3",
+            "hint": "Paste SoundCloud URL (Track or Playlist)",
+            "color": ft.Colors.ORANGE_700,
+            "icon": ft.Icons.CLOUD_DOWNLOAD
+        },
     }
     
     current_tool_id = "yt-dlp" # Default placeholder 默认占位符
@@ -352,7 +366,7 @@ async def main_app(page: ft.Page):
 
         # Map UI tool IDs to actual CLI engines 将界面工具ID映射至实际命令行引擎
         engine = current_tool_id
-        if current_tool_id in ["tiktok", "facebook", "instagram", "twitter"]:
+        if current_tool_id in ["tiktok", "facebook", "instagram", "twitter", "bilibili", "douyin"]:
             engine = "yt-dlp"
 
         command = [engine]
@@ -469,7 +483,7 @@ async def main_app(page: ft.Page):
         download_btn_container.bgcolor = t["color"]
         
         # Tools using yt-dlp engine support format selection
-        if tool_id in ["yt-dlp", "tiktok", "facebook", "instagram", "twitter"]:
+        if tool_id in ["yt-dlp", "tiktok", "facebook", "instagram", "twitter", "bilibili", "douyin"]:
             format_dropdown.visible = True
             format_dropdown.disabled = False
         else:
