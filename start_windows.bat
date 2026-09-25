@@ -23,10 +23,16 @@ if %errorlevel% neq 0 (
         echo [INFO] Downloading Portable FFmpeg ^(this only happens once^)...
         curl -L -o "%BIN_DIR%\ffmpeg.zip" "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
         echo [INFO] Extracting FFmpeg...
-        tar -xf "%BIN_DIR%\ffmpeg.zip" -C "%BIN_DIR%"
+        REM 必须用 System32 的 bsdtar（能解 zip）；直接写 tar 会命中 Git 自带的 GNU tar，它解不了 zip
+        "%SystemRoot%\System32\tar.exe" -xf "%BIN_DIR%\ffmpeg.zip" -C "%BIN_DIR%"
+        if exist "%FFMPEG_DIR%" rmdir /s /q "%FFMPEG_DIR%"
         ren "%BIN_DIR%\ffmpeg-master-latest-win64-gpl" "ffmpeg"
         del "%BIN_DIR%\ffmpeg.zip"
-        echo [INFO] FFmpeg successfully installed locally.
+        if not exist "%FFMPEG_DIR%\bin\ffmpeg.exe" (
+            echo [ERROR] ffmpeg.exe missing - check your antivirus quarantine
+        ) else (
+            echo [INFO] FFmpeg successfully installed locally.
+        )
         echo.
     )
 ) else (

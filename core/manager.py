@@ -72,10 +72,12 @@ class DownloadManager:
         try:
             # Ensure FFmpeg is available in the path if bundled 捆绑部署时确保FFmpeg在系统路径中可用
             env = os.environ.copy()
-            bundled_bin = os.path.join(self.base_path, "bin")
-            if os.path.exists(bundled_bin):
-                #将bundled_bin插到环境变量PATH的最前面，使子进程优先从这个目录找程序
-                env["PATH"] = bundled_bin + os.pathsep + env.get("PATH", "")
+            # bin/ 放引擎本体（yt-dlp.exe 等），ffmpeg.exe 在 bin/ffmpeg/bin/ 下
+            for extra in ("bin", os.path.join("bin", "ffmpeg", "bin")):
+                bundled_bin = os.path.join(self.base_path, extra)
+                if os.path.exists(bundled_bin):
+                    #将bundled_bin插到环境变量PATH的最前面，使子进程优先从这个目录找程序
+                    env["PATH"] = bundled_bin + os.pathsep + env.get("PATH", "")
 
             self.process = subprocess.Popen(
                 command,
