@@ -105,14 +105,14 @@ async def main_app(page: ft.Page):
         "bilibili": {
             "name": "Bilibili Downloader",
             "desc": "Bilibili to Video/Audio",
-            "hint": "Paste Bilibili URL",
+            "hint": "Paste Bilibili URL (You may keep the title)",
             "color": ft.Colors.PINK_400,
             "icon": ft.Icons.LIVE_TV
         },
         "douyin": {
             "name": "Douyin Downloader",
             "desc": "Douyin to Video/Audio",
-            "hint": "Paste Douyin URL",
+            "hint": "Paste Douyin URL (You may keep the full link)",
             "color": ft.Colors.BLACK,
             "icon": ft.Icons.TIKTOK
         },
@@ -340,6 +340,13 @@ async def main_app(page: ft.Page):
 
     def start_download(e):
         url = url_input.value
+        #针对bilibili,douyin链接的处理
+        if current_tool_id in ["douyin","bilibili"]:
+            url = url[url.find("https"):]
+            idx = url.rfind("复")
+            if idx != -1:
+                url = url[:idx]
+
         if not url:
             log_message("ERROR", "URL cannot be empty")
             return
