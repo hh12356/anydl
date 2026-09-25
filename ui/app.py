@@ -419,6 +419,7 @@ async def main_app(page: ft.Page):
     def show_home():
         tool_view.visible = False
         home_view.visible = True
+        url_input.value=''
         page.update()
 
     #切换主题
