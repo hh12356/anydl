@@ -15,6 +15,29 @@
 
 ---
 
+## 使用方法
+
+1. **选一个入口：** 首页只有两张卡片 —— **Video Downloader**（视频）和 **Music Downloader**（音乐），点进去就行。
+2. **粘贴链接：** 视频窗口支持 YouTube、Bilibili、抖音、TikTok、Facebook、Instagram、X；音乐窗口支持 Spotify 和 SoundCloud。**不用说明这是哪个站的链接**，识别是自动的。
+3. **（可选）调参数：** 视频窗口里可以选输出 MP4 还是 MP3、填裁剪时间段、勾选"播放列表单独建文件夹"。
+4. **点 Download 开跑。**
+
+文件会保存到 `~/Downloads/ANYDL`（Windows 上是 `C:\Users\你的用户名\Downloads\ANYDL`），目录不存在会自动创建。
+
+---
+
+## 功能特性
+
+- 🎥 **视频下载**：YouTube、Bilibili、抖音、TikTok、Facebook、Instagram、X，自动合并为 MP4
+- 🎵 **音乐下载**：Spotify 与 SoundCloud 的高质量 MP3，带完整元数据
+- ✂️ **片段裁剪**：只下你要的那一段，时间格式怎么写都行（见改动说明第 (5)(6) 条）
+- 🚀 **绕过 Spotify 限流**：在 Settings 里填自己的 Spotify Developer API Key，避开公共 API 的限流
+- 📁 **播放列表自动分文件夹**：按 `anydl@sytrus - [播放列表名]` 归类
+- 📊 **进度与统计**：实时进度条，完成后汇总成功／失败数量
+- 🎨 **现代界面**：简洁的卡片式首页，支持深色／浅色主题切换
+
+---
+
 ## 与上游版本的改动
 
 > 完整说明见 [`Changes from upstream.md`](Changes%20from%20upstream.md)。
@@ -77,29 +100,6 @@
    - 🍎 **macOS / 🐧 Linux：** 在终端里执行 `./start_linux.sh`
 
 *脚本会自动把环境配好，然后直接弹出应用窗口。*
-
----
-
-## 使用方法
-
-1. **选一个入口：** 首页只有两张卡片 —— **Video Downloader**（视频）和 **Music Downloader**（音乐），点进去就行。
-2. **粘贴链接：** 视频窗口支持 YouTube、Bilibili、抖音、TikTok、Facebook、Instagram、X；音乐窗口支持 Spotify 和 SoundCloud。**不用说明这是哪个站的链接**，识别是自动的。
-3. **（可选）调参数：** 视频窗口里可以选输出 MP4 还是 MP3、填裁剪时间段、勾选"播放列表单独建文件夹"。
-4. **点 Download 开跑。**
-
-文件会保存到 `~/Downloads/ANYDL`（Windows 上是 `C:\Users\你的用户名\Downloads\ANYDL`），目录不存在会自动创建。
-
----
-
-## 功能特性
-
-- 🎥 **视频下载**：YouTube、Bilibili、抖音、TikTok、Facebook、Instagram、X，自动合并为 MP4
-- 🎵 **音乐下载**：Spotify 与 SoundCloud 的高质量 MP3，带完整元数据
-- ✂️ **片段裁剪**：只下你要的那一段，时间格式怎么写都行（见改动说明第 (5)(6) 条）
-- 🚀 **绕过 Spotify 限流**：在 Settings 里填自己的 Spotify Developer API Key，避开公共 API 的限流
-- 📁 **播放列表自动分文件夹**：按 `anydl@sytrus - [播放列表名]` 归类
-- 📊 **进度与统计**：实时进度条，完成后汇总成功／失败数量
-- 🎨 **现代界面**：简洁的卡片式首页，支持深色／浅色主题切换
 
 ---
 

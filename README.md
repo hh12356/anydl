@@ -15,6 +15,29 @@
 
 ---
 
+## How to Use
+
+1. **Pick an entry point:** the home screen has just two cards — **Video Downloader** and **Music Downloader**.
+2. **Paste a link:** the video window handles YouTube, Bilibili, Douyin, TikTok, Facebook, Instagram and X; the music window handles Spotify and SoundCloud. **You don't need to say which site it is** — it's detected automatically.
+3. **(Optional) Tune the options:** in the video window you can pick MP4 or MP3 output, enter a trim range, and tick "separate folder per playlist".
+4. **Click Download.**
+
+Files are saved to `~/Downloads/ANYDL` (`C:\Users\<your-name>\Downloads\ANYDL` on Windows). The folder is created automatically if it doesn't exist.
+
+---
+
+## Features
+
+- 🎥 **Video downloads**: YouTube, Bilibili, Douyin, TikTok, Facebook, Instagram, X — merged to MP4 automatically
+- 🎵 **Music downloads**: high-quality MP3 from Spotify and SoundCloud, with full metadata
+- ✂️ **Trimming**: download only the part you need; type the time range however you like (see changes 5 and 6)
+- 🚀 **Spotify rate-limit bypass**: put your own Spotify Developer API key in Settings to avoid throttling on the public API
+- 📁 **Automatic playlist folders**: grouped as `anydl@sytrus - [Playlist Name]`
+- 📊 **Progress & stats**: a live progress bar, plus a success/failure summary when it finishes
+- 🎨 **Modern UI**: a clean card-based home screen with dark/light theme switching
+
+---
+
 ## Changes from Upstream
 
 > Full details in [`Changes from upstream.md`](Changes%20from%20upstream.md).
@@ -77,29 +100,6 @@ Two things must already be installed:
    - 🍎 **macOS / 🐧 Linux:** run `./start_linux.sh` in a terminal
 
 *The script sets up the environment and then opens the app window.*
-
----
-
-## How to Use
-
-1. **Pick an entry point:** the home screen has just two cards — **Video Downloader** and **Music Downloader**.
-2. **Paste a link:** the video window handles YouTube, Bilibili, Douyin, TikTok, Facebook, Instagram and X; the music window handles Spotify and SoundCloud. **You don't need to say which site it is** — it's detected automatically.
-3. **(Optional) Tune the options:** in the video window you can pick MP4 or MP3 output, enter a trim range, and tick "separate folder per playlist".
-4. **Click Download.**
-
-Files are saved to `~/Downloads/ANYDL` (`C:\Users\<your-name>\Downloads\ANYDL` on Windows). The folder is created automatically if it doesn't exist.
-
----
-
-## Features
-
-- 🎥 **Video downloads**: YouTube, Bilibili, Douyin, TikTok, Facebook, Instagram, X — merged to MP4 automatically
-- 🎵 **Music downloads**: high-quality MP3 from Spotify and SoundCloud, with full metadata
-- ✂️ **Trimming**: download only the part you need; type the time range however you like (see changes 5 and 6)
-- 🚀 **Spotify rate-limit bypass**: put your own Spotify Developer API key in Settings to avoid throttling on the public API
-- 📁 **Automatic playlist folders**: grouped as `anydl@sytrus - [Playlist Name]`
-- 📊 **Progress & stats**: a live progress bar, plus a success/failure summary when it finishes
-- 🎨 **Modern UI**: a clean card-based home screen with dark/light theme switching
 
 ---
 
