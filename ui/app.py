@@ -309,7 +309,7 @@ async def main_app(page: ft.Page):
             format_dropdown.disabled = False
             playlist_checkbox.disabled = False
 
-            if "Process finished" in msg:
+            if "Process finished with exit code 0" in msg:
                 if playlist_state["total"] > 0:
                     success_count = playlist_state["downloaded"]
                     failed_count = playlist_state["total"] - success_count
@@ -325,7 +325,7 @@ async def main_app(page: ft.Page):
                 dlg.actions = [ft.TextButton("OK", on_click=close_success)]
                 page.overlay.append(dlg)
                 dlg.open = True
-            elif msg_type == "ERROR":
+            else:
                 dlg = ft.AlertDialog(title=ft.Text("Error"), content=ft.Text("Download failed. Please check the logs for details."))
                 def close_error(e, d=dlg):
                     d.open = False
