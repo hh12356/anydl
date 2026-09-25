@@ -12,9 +12,13 @@ env/
 # Flet / Flet build outputs
 build/
 
-# PyInstaller 打包产物（dist 有 300MB，千万别提交）
+# PyInstaller 打包产物（dist 有 584MB，千万别提交）
 dist/
 *.spec
+# 上面忽略掉所有 .spec，但打包配方要留下来：以后改完代码重建只需
+# pyinstaller --noconfirm anydl.spec，不用重敲 --collect-all 那一长串。
+# 注意 .gitignore 不支持行尾注释，注释只能单独占一行
+!anydl.spec
 anydl.exe
 
 # Testing/Logs
