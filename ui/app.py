@@ -29,26 +29,16 @@ def save_spotdl_config(data):
         #将data写入文件，缩进为4
         json.dump(data, f, indent=4)
 
-#读cookie用的浏览器，写死火狐。
-#Windows上Chrome/Edge的cookie被App-Bound加密了，yt-dlp解不开，会报
-#"Failed to decrypt with DPAPI"(yt-dlp issue #1097)。列出来的可选浏览器里
-#只有firefox不是那套机制，所以不给用户选了，省得选完一脸问号
+#读cookie用的浏览器写死火狐
 COOKIE_BROWSER = "firefox"
 
 def normalize_trim_time(raw, field_name):
-    """把裁剪时间统一成 yt-dlp 认的 HH:MM:SS。
-    偷懒写法也收：SS、MM:SS 都行，缺的部分补 00。
-    返回 (规范化后的字符串, 错误信息)。错误信息是 None 表示通过；
-    返回空字符串表示这一项没填。"""
+    """把裁剪时间统一成 yt-dlp 认的 HH:MM:SS"""
     s = (raw or "").strip()
     if not s:
         return "", None
 
-    #中文输入法下冒号会打成全角，数字也可能是全角。yt-dlp拿到只会甩个看不懂的错，
-    #所以在这里先拦下来，并且指出到底是哪个字符不对。
-    #中文输入法会把冒号打成全角。三种长得几乎一样的全角冒号都列上，
-    #码点写注释里是因为代码里半角全角肉眼分不出来，只能靠码点核对：
-    #第一个是常见的全角冒号 U+FF1A，后面两个是变体 U+2236 / U+FE55
+    #中文输入法下冒号会打成全角，数字也可能是全角。yt-dlp拿到只会甩个看不懂的错
     FULLWIDTH_COLONS = "：∶﹕"
     for ch in s:
         if ch in FULLWIDTH_COLONS:
@@ -69,8 +59,6 @@ def normalize_trim_time(raw, field_name):
     except ValueError:
         return None, f"{field_name}: '{s}' has something in it that isn't a number."
 
-    #先按秒归一，多出来的进位。用户写"90"就是想要90秒，直接报"秒不能超过60"太挡路，
-    #进位成00:01:30更顺手。先round再拆，否则59.999会被格式化成"60"
     total = round(h * 3600 + m * 60 + sec, 2)
     h, rem = divmod(total, 3600)
     m, sec = divmod(rem, 60)
@@ -161,12 +149,8 @@ async def main_app(page: ft.Page):
     # Determine default download path 确定默认下载路径
     default_download_path = os.path.join(os.path.expanduser("~"), "Downloads", "ANYDL")
 
-    # Removed FilePicker for Web Compatibility 移除文件选择器，提升网页兼容性
+    # Removed FilePicker for Web Compatibility 移除文件
 
-    #视频窗口里站点不再让用户选，粘什么下什么，所以这些站点差异只能从URL自己认。
-    #direct:  国内站点绕开系统代理直连。yt-dlp会自动读Windows注册表里的系统代理，
-    #         用户开着Clash的话请求就从境外节点出去，b站/抖音看到境外IP直接风控
-    #         (抖音返回403，报出来却是"Fresh cookies are needed"——非常误导)
     #cookies: 抖音要新鲜的访客cookie，从火狐现读，不用登录，在火狐里打开过一次站点就行
     SITE_RULES = {
         "bilibili.com": {"direct": True},
@@ -263,9 +247,6 @@ async def main_app(page: ft.Page):
     )
 
     #裁剪时间段输入框（只有走yt-dlp引擎的工具才显示）
-    #偷懒写法都收：SS、MM:SS、HH:MM:SS，开跑前由 normalize_trim_time 统一补成 HH:MM:SS。
-    #两个都留空 = 不裁剪，下载整个视频；只填结束、开始留空 = 从0开始
-    #别用dense=True：dense是"砍掉竖向留白"，已经定了高度再叠dense等于压两遍，框会变得很扁
     trim_start_field = ft.TextField(
         hint_text="Start (SS/MM:SS)",
         tooltip="SS, MM:SS or HH:MM:SS. Empty = from the beginning.",
@@ -281,15 +262,10 @@ async def main_app(page: ft.Page):
 
     #另开文件夹勾选框
     playlist_checkbox = ft.Checkbox(label="Create separate folder for playlist", value=False)
-    #第一行：格式选择 + 两个裁剪框
-    #这里不用wrap=True自动换行。Flutter的Wrap在宽度宽松时会缩到"最宽那一行"的宽度，
-    #居中基准跟着缩，换下去那行就偏了(试过套一层Row+expand撑宽也没用)。
-    #直接拆成两行写死，各自CENTER，结果就是确定的
     options_row = ft.Row(
         [format_dropdown, trim_start_field, trim_end_field],
         alignment=ft.MainAxisAlignment.CENTER, spacing=20
     )
-    #第二行：勾选框自己一行，居中
     playlist_row = ft.Row(
         [playlist_checkbox],
         alignment=ft.MainAxisAlignment.CENTER
@@ -297,10 +273,7 @@ async def main_app(page: ft.Page):
     
     spotify_api_info_text = ft.Text("", size=12, color=ft.Colors.GREY_600, visible=False, italic=True)
 
-    #抖音专属提示，粘了抖音链接才显示。yt-dlp要读火狐里的访客cookie，
-    #没先在火狐里打开过一次抖音的话，会报"Fresh cookies ... are needed"。
-    #站点合并之后别的站都不需要火狐，所以开头就把"只有抖音要"说清楚，
-    #免得用户以为下个YouTube也得装火狐
+    #抖音专属提示，粘了抖音链接才显示。yt-dlp要读火狐里的访客cookie
     douyin_cookie_hint = ft.Column([
         ft.Text("Only Douyin needs Firefox. Open douyin.com in Firefox once "
                 "(no login needed) so anydl can read the visitor cookies; "
@@ -434,9 +407,6 @@ async def main_app(page: ft.Page):
 
     def start_download(e):
         url = (url_input.value or "").strip()
-        #分享文案整段粘进来的处理。b站/抖音的分享文本长这样：
-        #"【标题】 https://v.douyin.com/xxxx 复制此链接打开抖音"，砍掉链接前后的中文废话。
-        #对YouTube这种本来就只有一条链接的，这几行等于什么也没做
         start = url.find("https")
         if start != -1:   #find找不到会返回-1，不判断的话 url[-1:] 会取到最后一个字符
             url = url[start:]
@@ -449,8 +419,6 @@ async def main_app(page: ft.Page):
             log_message("ERROR", "URL cannot be empty")
             return
 
-        #窗口ID -> 真正跑的引擎。视频窗口只有一个引擎；音乐窗口有俩，按域名分，
-        #认不出来就交给spotdl，它支持直接敲关键词搜歌
         if current_tool_id == "video":
             engine = "yt-dlp"
         else:
@@ -459,8 +427,6 @@ async def main_app(page: ft.Page):
         #站点特殊规则(关代理/读cookie)，只对yt-dlp有意义
         rule = site_rule(url) if engine == "yt-dlp" else {}
 
-        #裁剪时间开跑前先检查并规范化。中文输入法打出的全角冒号，yt-dlp只会甩个看不懂的
-        #报错，不如在这里说清楚；顺便把"1:30"这种偷懒写法补成 yt-dlp 认的 HH:MM:SS
         trim_start, trim_end = "", ""
         if engine == "yt-dlp":
             trim_start, err = normalize_trim_time(trim_start_field.value, "Trim start")
@@ -732,8 +698,8 @@ async def main_app(page: ft.Page):
                 ft.Text(t_data["name"], size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK),
                 ft.Text(t_data["desc"], size=12, color=ft.Colors.GREY_600, text_align=ft.TextAlign.CENTER)
             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, alignment=ft.MainAxisAlignment.CENTER),
-            width=280,
-            height=220,
+            width=380,
+            height=380,
             padding=20,
             bgcolor=ft.Colors.WHITE,
             border_radius=ft.BorderRadius.all(8),
@@ -750,8 +716,6 @@ async def main_app(page: ft.Page):
             ft.Container(height=40),
             home_title,
             ft.Container(height=40),
-            #就两张卡了，不用GridView——它按列宽铺，两张会全挤在左边。
-            #也别套wrap=True自动换行，Flet里Wrap的宽度是按"最宽那一行"算的，居中基准会跟着跑
             ft.Row(cards, alignment=ft.MainAxisAlignment.CENTER, spacing=20)
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
     )
