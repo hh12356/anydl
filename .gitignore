@@ -9,6 +9,11 @@ venv/
 ENV/
 env/
 
+# IDE
+# 已经用 git rm -r --cached 停止跟踪了，这里再挡一道，
+# 免得哪天 git add -A 又把它抓回仓库公开出去
+.idea/
+
 # Flet / Flet build outputs
 build/
 
