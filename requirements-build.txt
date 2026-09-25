@@ -1,0 +1,4 @@
+# 打包成 exe 时才需要装的依赖，普通用户跑 start_windows.bat 不需要，所以没放进 requirements.txt
+# 用法：pip install -r requirements.txt -r requirements-build.txt
+flet[cli]      # cli 附加包里带着 PyInstaller 钩子，缺了就打不进 flet 客户端
+pyinstaller    # 打包工具本体

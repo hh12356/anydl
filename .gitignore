@@ -12,6 +12,11 @@ env/
 # Flet / Flet build outputs
 build/
 
+# PyInstaller 打包产物（dist 有 300MB，千万别提交）
+dist/
+*.spec
+anydl.exe
+
 # Testing/Logs
 *.log
 spotdl_test.log

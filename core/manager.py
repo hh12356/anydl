@@ -4,7 +4,17 @@ import queue
 import os #操作系统底层接口
 import sys #操作python运行环境
 import shutil #实现高级文件操作
-import time
+
+
+# 打包后 pip 生成的 spotdl.exe/scdl.exe/yt-dlp.exe 用不了：那只是启动器壳，
+# 里面写死了解释器的绝对路径，发到别人机器上就失效。所以改成让程序自己当解释器，
+# 用 "anydl.exe -m spotdl" 这种方式把引擎拉起来（main.py 里接住这个参数）。
+# 左边是引擎名，右边是模块名
+ENGINE_MODULES = {
+    "yt-dlp": "yt_dlp",
+    "spotdl": "spotdl",
+    "scdl": "scdl",
+}
 
 
 class DownloadManager:
@@ -24,39 +34,46 @@ class DownloadManager:
 
     def _resolve_engine_path(self, engine_name):
         """
-        Locates the full path for a given engine (yt-dlp, spotdl, etc.) 查找指定引擎的完整路径
+        Returns how to launch a given engine (yt-dlp, spotdl, etc.) 返回启动指定引擎的命令开头
+        注意返回的是 list：开发环境里就一条路径，打包后是 [解释器, "-m", 模块名]
         Order of priority 优先级排序:
-        1. Bundled 'bin' folder (for portable builds)
-        2. Local '.venv/bin' folder (for development)
-        3. System PATH
+        1. Bundled app itself as an interpreter (for packaged builds)
+        2. Bundled 'bin' folder (for portable builds)
+        3. Local '.venv/bin' folder (for development)
+        4. System PATH
         """
-        # 1. Check bundled bin folder 检查捆绑的 bin 文件夹
+        # 1. 打包产物：让程序自己当解释器跑引擎，见上面 ENGINE_MODULES 的说明
+        if getattr(sys, 'frozen', False) and engine_name in ENGINE_MODULES:
+            return [sys.executable, "-m", ENGINE_MODULES[engine_name]]
+
+        # 2. Check bundled bin folder 检查捆绑的 bin 文件夹
         bundled_path = os.path.join(self.base_path, "bin", engine_name)
         if os.name == 'nt': bundled_path += ".exe" #如果是windows系统则加".exe"后缀
         if os.path.exists(bundled_path):
-            return bundled_path
+            return [bundled_path]
 
-        # 2. Check virtual environment 检查虚拟环境
+        # 3. Check virtual environment 检查虚拟环境
         venv_path = os.path.join(self.base_path, ".venv", "bin", engine_name)
         if os.name == 'nt': venv_path = os.path.join(self.base_path, ".venv", "Scripts", engine_name + ".exe")
         if os.path.exists(venv_path):
-            return venv_path
+            return [venv_path]
 
-        # 3. Fallback to system PATH 回退至系统路径
+        # 4. Fallback to system PATH 回退至系统路径
         system_path = shutil.which(engine_name)
         if system_path:
-            return system_path
+            return [system_path]
 
-        return engine_name # Return as is, hope for the best
+        return [engine_name] # Return as is, hope for the best
 
     def start_download(self, command, cwd=None): #cwd:子进程工作目录，下载文件的默认目录
         """Starts the download process in a separate thread. 另开线程下载"""
         # Resolve the engine path (first element of command) 取出引擎（命令的第一个元素）
         engine = command[0]
         resolved_engine = self._resolve_engine_path(engine)
-        
+
         # Reconstruct command with resolved engine 使用已解析引擎重构命令
-        full_command = [resolved_engine] + command[1:]
+        # resolved_engine 已经是 list（打包后可能不止一个元素），直接拼
+        full_command = resolved_engine + command[1:]
         
         self.output_queue.put(("STATUS", f"Starting: {' '.join(full_command)}"))
         # 有cwd是告知用户输出目录
