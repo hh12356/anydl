@@ -5,7 +5,7 @@
   <img src="screenshots/home.png" alt="应用首页" width="600">
 </div>
 
-[English](README.md) · **中文**
+[English](README.md) · **中文** · [⬇️ 下载 Windows 单文件版](https://github.com/hh12356/anydl/releases/latest)
 
 ## 项目简介
 
@@ -36,7 +36,22 @@
 
 ## 📌 快速开始（安装与运行）
 
-### 1. 前置要求
+### 方式一：下载单文件版（推荐，仅 Windows）
+
+**[⬇️ 下载 anydl.exe](https://github.com/hh12356/anydl/releases/latest)**（约 159 MB）
+
+双击就能用，**不需要装 Python，也不需要装 FFmpeg**，装好之后断网也能跑。
+
+- **第一次打开要等约 30 秒**（正在解压），之后每次都是秒开。
+- 解压位置：依次找 D~H 盘，用第一个存在的盘里的 `anydl` 文件夹；机器上只有 C 盘的话就解压到 exe 旁边。
+- 首次运行 Windows 会弹「Windows 已保护你的电脑」，点 **更多信息 → 仍要运行** —— exe 没有代码签名，这是正常现象。
+- 卸载 = 删掉解压出来的 `anydl` 文件夹。不写注册表、不加卸载项。
+
+> 想下抖音的话仍然要先装 Firefox 并在里面打开一次 douyin.com，见上方改动说明末尾的注意。
+
+### 方式二：从源码运行（Windows / macOS / Linux）
+
+#### 1. 前置要求
 
 **🪟 Windows 用户：**
 什么都不用装。如果系统里没有 Python 和 FFmpeg，`start_windows.bat` 会自动帮你下载便携版（Python 3.11 + FFmpeg），只会下载一次。
@@ -51,7 +66,7 @@
 
 **🔥 想下抖音的话：** 额外装一个 [Firefox](https://www.mozilla.org/firefox/new/)，并**在 Firefox 里打开一次 douyin.com**（不用登录）。原因见上方改动说明末尾的注意。
 
-### 2. 下载并运行
+#### 2. 下载并运行
 
 1. **下载仓库：**
    点右上角绿色的 **"Code"** 按钮，选 **"Download ZIP"**，解压。*（或者用命令行克隆：`git clone https://github.com/hh12356/anydl.git`）*

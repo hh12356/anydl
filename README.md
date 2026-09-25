@@ -5,7 +5,7 @@
   <img src="screenshots/home.png" alt="App Homepage" width="600">
 </div>
 
-**English** · [中文](README.zh-CN.md)
+**English** · [中文](README.zh-CN.md) · [⬇️ Download for Windows](https://github.com/hh12356/anydl/releases/latest)
 
 ## Overview
 
@@ -36,7 +36,22 @@ A lot of work went into making the app simpler and the everyday actions quicker.
 
 ## 📌 Quick Start (Installation & Running)
 
-### 1. Prerequisites
+### Option A: Download the single-file build (recommended, Windows only)
+
+**[⬇️ Download anydl.exe](https://github.com/hh12356/anydl/releases/latest)** (about 159 MB)
+
+Just double-click it — **no Python and no FFmpeg required**, and it works offline once installed.
+
+- **The first launch takes about 30 seconds** (it's extracting); after that it opens in seconds.
+- Where it extracts: the first existing drive among D–H, into an `anydl` folder. On a machine with only a C: drive, it extracts next to the exe instead.
+- On first run Windows shows "Windows protected your PC" — click **More info → Run anyway**. The exe isn't code-signed, so this is expected.
+- To uninstall, just delete the extracted `anydl` folder. No registry entries, no uninstaller.
+
+> Downloading from Douyin still needs Firefox with douyin.com opened in it once — see the note at the end of the changes above.
+
+### Option B: Run from source (Windows / macOS / Linux)
+
+#### 1. Prerequisites
 
 **🪟 Windows users:**
 Nothing to install. If Python and FFmpeg are missing from your system, `start_windows.bat` downloads portable versions for you (Python 3.11 + FFmpeg). This happens only once.
@@ -51,7 +66,7 @@ Two things must already be installed:
 
 **🔥 Downloading from Douyin?** Also install [Firefox](https://www.mozilla.org/firefox/new/) and open douyin.com in it once (no login needed). Reason: see the note at the end of the changes above.
 
-### 2. Download and Run
+#### 2. Download and Run
 
 1. **Download the repository:**
    Click the green **"Code"** button at the top, choose **"Download ZIP"**, and extract it. *(Or clone it: `git clone https://github.com/hh12356/anydl.git`)*
