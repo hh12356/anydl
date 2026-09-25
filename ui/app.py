@@ -29,6 +29,56 @@ def save_spotdl_config(data):
         #将data写入文件，缩进为4
         json.dump(data, f, indent=4)
 
+#读cookie用的浏览器，写死火狐。
+#Windows上Chrome/Edge的cookie被App-Bound加密了，yt-dlp解不开，会报
+#"Failed to decrypt with DPAPI"(yt-dlp issue #1097)。列出来的可选浏览器里
+#只有firefox不是那套机制，所以不给用户选了，省得选完一脸问号
+COOKIE_BROWSER = "firefox"
+
+def normalize_trim_time(raw, field_name):
+    """把裁剪时间统一成 yt-dlp 认的 HH:MM:SS。
+    偷懒写法也收：SS、MM:SS 都行，缺的部分补 00。
+    返回 (规范化后的字符串, 错误信息)。错误信息是 None 表示通过；
+    返回空字符串表示这一项没填。"""
+    s = (raw or "").strip()
+    if not s:
+        return "", None
+
+    #中文输入法下冒号会打成全角，数字也可能是全角。yt-dlp拿到只会甩个看不懂的错，
+    #所以在这里先拦下来，并且指出到底是哪个字符不对。
+    #中文输入法会把冒号打成全角。三种长得几乎一样的全角冒号都列上，
+    #码点写注释里是因为代码里半角全角肉眼分不出来，只能靠码点核对：
+    #第一个是常见的全角冒号 U+FF1A，后面两个是变体 U+2236 / U+FE55
+    FULLWIDTH_COLONS = "：∶﹕"
+    for ch in s:
+        if ch in FULLWIDTH_COLONS:
+            return None, f"{field_name}: full-width colon '{ch}'. Use the half-width ':' instead."
+        if ch.isdigit() and not ch.isascii():
+            return None, f"{field_name}: full-width digit '{ch}'. Switch the input method to half-width."
+        if ch not in "0123456789:. ":
+            return None, f"{field_name}: unexpected character '{ch}'. Use SS, MM:SS or HH:MM:SS."
+
+    parts = [p.strip() for p in s.split(":")]
+    if len(parts) > 3 or any(p == "" for p in parts):
+        return None, f"{field_name}: '{s}' is not a valid time. Use SS, MM:SS or HH:MM:SS."
+
+    #不足三段就从左边补 00，这样下面只用处理一种形状
+    parts = ["00"] * (3 - len(parts)) + parts
+    try:
+        h, m, sec = int(parts[0]), int(parts[1]), float(parts[2])
+    except ValueError:
+        return None, f"{field_name}: '{s}' has something in it that isn't a number."
+
+    #先按秒归一，多出来的进位。用户写"90"就是想要90秒，直接报"秒不能超过60"太挡路，
+    #进位成00:01:30更顺手。先round再拆，否则59.999会被格式化成"60"
+    total = round(h * 3600 + m * 60 + sec, 2)
+    h, rem = divmod(total, 3600)
+    m, sec = divmod(rem, 60)
+
+    #秒是整数就别写成 5.0，yt-dlp认但看着别扭
+    sec_text = f"{sec:05.2f}".rstrip("0").rstrip(".").zfill(2)
+    return f"{int(h):02d}:{int(m):02d}:{sec_text}", None
+
 async def main_app(page: ft.Page):
     page.title = "anydl"
     page.theme_mode = ft.ThemeMode.LIGHT
@@ -50,13 +100,17 @@ async def main_app(page: ft.Page):
     client_id_field = ft.TextField(label="Spotify Client ID", value=current_client_id, password=True, can_reveal_password=True)
     client_secret_field = ft.TextField(label="Spotify Client Secret", value=current_client_secret, password=True, can_reveal_password=True)
 
+    #抖音这种站点要"新鲜的访客cookie"。用--cookies-from-browser让yt-dlp每次去火狐现读，
+    #比手动导出cookies.txt好：只要在火狐里访问过该站点，cookie就一直是新鲜的，永不过期。
+    #不需要登录，打开过网站就行。火狐是写死的(见 COOKIE_BROWSER)，所以这里没有下拉框
+
     def save_settings_click(e):
         #strip去掉首尾空格 带默认公用id密匙
         spotdl_config["client_id"] = client_id_field.value.strip() or "5f573c9620494bae87890c0f08a60293"
         spotdl_config["client_secret"] = client_secret_field.value.strip() or "212476d9b0f3472eaa762d90b19b0ba8"
         save_spotdl_config(spotdl_config)
-        
-        if current_tool_id == "spotdl":
+
+        if current_tool_id == "music":
             if spotdl_config.get("client_id", "") != "5f573c9620494bae87890c0f08a60293":
                 spotify_api_info_text.value = "Currently using: Custom API"
             else:
@@ -73,7 +127,15 @@ async def main_app(page: ft.Page):
             ft.TextButton("Open Spotify Developer Dashboard", icon=ft.Icons.OPEN_IN_NEW, url="https://developer.spotify.com/dashboard", style=ft.ButtonStyle(color=ft.Colors.BLUE)),
             ft.Text("Leave blank to use the default built-in API.", size=12, color=ft.Colors.GREY_600),
             client_id_field,
-            client_secret_field
+            client_secret_field,
+            ft.Divider(),
+            ft.Text("Douyin Cookies (Firefox Only)", weight=ft.FontWeight.BOLD),
+            ft.Text("Douyin needs fresh visitor cookies, and Firefox is the only browser "
+                    "anydl can read them from. Open douyin.com in Firefox once - logging in "
+                    "is not required.\n"
+                    "Chrome and Edge will not work: Windows encrypts their cookies in a way "
+                    "yt-dlp cannot decrypt.",
+                    size=12, color=ft.Colors.GREY_600),
         ], tight=True),
         actions=[
             #setattr():赋值
@@ -101,73 +163,48 @@ async def main_app(page: ft.Page):
 
     # Removed FilePicker for Web Compatibility 移除文件选择器，提升网页兼容性
 
+    #视频窗口里站点不再让用户选，粘什么下什么，所以这些站点差异只能从URL自己认。
+    #direct:  国内站点绕开系统代理直连。yt-dlp会自动读Windows注册表里的系统代理，
+    #         用户开着Clash的话请求就从境外节点出去，b站/抖音看到境外IP直接风控
+    #         (抖音返回403，报出来却是"Fresh cookies are needed"——非常误导)
+    #cookies: 抖音要新鲜的访客cookie，从火狐现读，不用登录，在火狐里打开过一次站点就行
+    SITE_RULES = {
+        "bilibili.com": {"direct": True},
+        "b23.tv": {"direct": True},        #b站短链
+        "douyin.com": {"direct": True, "cookies": True},
+        "iesdouyin.com": {"direct": True, "cookies": True},
+    }
+
+    def site_rule(url):
+        """按URL里出现的域名查上面那张表，认不出来就返回空规则，当普通站点处理"""
+        host = (url or "").lower()
+        for domain, rule in SITE_RULES.items():
+            #用 in 而不是 endswith("."+domain)：这样 v.douyin.com、b23.tv 这类
+            #子域和短链都能盖住。代价是理论上 notbilibili.com 会误判，但下载器这场景无所谓
+            if domain in host:
+                return rule
+        return {}
+
+    #首页就两张卡。视频那些站全走同一个引擎(yt-dlp)，站点差异见上面的 SITE_RULES；
+    #音乐那边是引擎不同(spotdl/scdl)，所以在 start_download 里按域名分
     TOOLS = {
-        "bilibili": {
-            "name": "Bilibili Downloader",
-            "desc": "Bilibili to Video/Audio",
-            "hint": "Paste Bilibili URL (You may keep the title)",
-            "color": ft.Colors.PINK_400,
-            "icon": ft.Icons.LIVE_TV
-        },
-        "douyin": {
-            "name": "Douyin Downloader",
-            "desc": "Douyin to Video/Audio",
-            "hint": "Paste Douyin URL (You may keep the full link)",
-            "color": ft.Colors.BLACK,
-            "icon": ft.Icons.TIKTOK
-        },
-        "spotdl": {
-            "name": "Spotify Downloader",
-            "desc": "Spotify track/playlist to MP3",
-            "hint": "Paste Spotify URL or search",
-            "color": "#21c25e",
-            "icon": ft.Icons.LIBRARY_MUSIC
-        },
-        "yt-dlp": {
-            "name": "YouTube Downloader",
-            "desc": "YouTube to Video/Audio",
-            "hint": "Paste YouTube URL or search",
+        "video": {
+            "name": "Video Downloader",
+            "desc": "YouTube, Bilibili, Douyin, TikTok, Facebook, Instagram, X",
+            "hint": "Paste any video URL",
             "color": ft.Colors.RED_600,
             "icon": ft.Icons.VIDEO_LIBRARY
         },
-        "tiktok": {
-            "name": "TikTok Downloader",
-            "desc": "TikTok Video to MP4",
-            "hint": "Paste TikTok URL",
-            "color": ft.Colors.CYAN_400,
-            "icon": ft.Icons.MUSIC_VIDEO
-        },
-        "facebook": {
-            "name": "Facebook Downloader",
-            "desc": "Facebook Reels to Video/Audio",
-            "hint": "Paste Facebook Video URL",
-            "color": ft.Colors.BLUE_800,
-            "icon": ft.Icons.FACEBOOK
-        },
-        "instagram": {
-            "name": "Instagram Reels",
-            "desc": "Instagram Reels to Video/Audio ",
-            "hint": "Paste Instagram URL",
-            "color": ft.Colors.PINK_500,
-            "icon": ft.Icons.CAMERA_ALT
-        },
-        "twitter": {
-            "name": "X (Twitter)",
-            "desc": "X to Video/Audio",
-            "hint": "Paste X/Twitter URL",
-            "color": ft.Colors.BLACK,
-            "icon": ft.Icons.WEB
-        },
-        "scdl": {
-            "name": "SoundCloud Downloader",
-            "desc": "SoundCloud to MP3",
-            "hint": "Paste SoundCloud URL (Track or Playlist)",
-            "color": ft.Colors.ORANGE_700,
-            "icon": ft.Icons.CLOUD_DOWNLOAD
+        "music": {
+            "name": "Music Downloader",
+            "desc": "Spotify & SoundCloud to MP3",
+            "hint": "Paste Spotify/SoundCloud URL, or search",
+            "color": "#21c25e",
+            "icon": ft.Icons.LIBRARY_MUSIC
         },
     }
-    
-    current_tool_id = "yt-dlp" # Default placeholder 默认占位符
+
+    current_tool_id = "video" # Default placeholder 默认占位符
 
     # -------------------------------------------------------------
     # Shared State & Elements
@@ -207,6 +244,10 @@ async def main_app(page: ft.Page):
 
 
 
+    #这一行里所有控件的统一高度，保证永远齐平。
+    #要调只改这一处，别只改其中一个控件——之前"两个框不一样高"就是这么来的
+    OPTION_H = 56
+
     # Format Selector (yt-dlp only)
     format_dropdown = ft.Dropdown(
         options=[
@@ -215,17 +256,68 @@ async def main_app(page: ft.Page):
         ],
         value="video",
         width=180,
-        height=40,
+        height=OPTION_H,
         content_padding=ft.Padding.only(left=10, right=10),
         text_size=12,
         visible=False
     )
 
+    #裁剪时间段输入框（只有走yt-dlp引擎的工具才显示）
+    #偷懒写法都收：SS、MM:SS、HH:MM:SS，开跑前由 normalize_trim_time 统一补成 HH:MM:SS。
+    #两个都留空 = 不裁剪，下载整个视频；只填结束、开始留空 = 从0开始
+    #别用dense=True：dense是"砍掉竖向留白"，已经定了高度再叠dense等于压两遍，框会变得很扁
+    trim_start_field = ft.TextField(
+        hint_text="Start (SS/MM:SS)",
+        tooltip="SS, MM:SS or HH:MM:SS. Empty = from the beginning.",
+        width=175, height=OPTION_H, text_size=12,
+        content_padding=ft.Padding.symmetric(vertical=10, horizontal=10)
+    )
+    trim_end_field = ft.TextField(
+        hint_text="End (empty = to end)",
+        tooltip="SS, MM:SS or HH:MM:SS. Empty = keep to the end.",
+        width=185, height=OPTION_H, text_size=12,
+        content_padding=ft.Padding.symmetric(vertical=10, horizontal=10)
+    )
+
     #另开文件夹勾选框
     playlist_checkbox = ft.Checkbox(label="Create separate folder for playlist", value=False)
-    options_row = ft.Row([format_dropdown, playlist_checkbox], alignment=ft.MainAxisAlignment.CENTER, spacing=20)
+    #第一行：格式选择 + 两个裁剪框
+    #这里不用wrap=True自动换行。Flutter的Wrap在宽度宽松时会缩到"最宽那一行"的宽度，
+    #居中基准跟着缩，换下去那行就偏了(试过套一层Row+expand撑宽也没用)。
+    #直接拆成两行写死，各自CENTER，结果就是确定的
+    options_row = ft.Row(
+        [format_dropdown, trim_start_field, trim_end_field],
+        alignment=ft.MainAxisAlignment.CENTER, spacing=20
+    )
+    #第二行：勾选框自己一行，居中
+    playlist_row = ft.Row(
+        [playlist_checkbox],
+        alignment=ft.MainAxisAlignment.CENTER
+    )
     
     spotify_api_info_text = ft.Text("", size=12, color=ft.Colors.GREY_600, visible=False, italic=True)
+
+    #抖音专属提示，粘了抖音链接才显示。yt-dlp要读火狐里的访客cookie，
+    #没先在火狐里打开过一次抖音的话，会报"Fresh cookies ... are needed"。
+    #站点合并之后别的站都不需要火狐，所以开头就把"只有抖音要"说清楚，
+    #免得用户以为下个YouTube也得装火狐
+    douyin_cookie_hint = ft.Column([
+        ft.Text("Only Douyin needs Firefox. Open douyin.com in Firefox once "
+                "(no login needed) so anydl can read the visitor cookies; "
+                "every other site works without it.",
+                size=12, color=ft.Colors.GREY_600, text_align=ft.TextAlign.CENTER),
+        ft.TextButton("Download Firefox", icon=ft.Icons.OPEN_IN_NEW,
+                      url="https://www.mozilla.org/firefox/new/",
+                      style=ft.ButtonStyle(color=ft.Colors.BLUE)),
+    ], width=600, spacing=0, visible=False,
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+
+    def on_url_change(e):
+        #粘进来是抖音链接才提示火狐那件事。一直挂着太占地方，视频窗口是"什么都能粘"的
+        douyin_cookie_hint.visible = "douyin" in (url_input.value or "").lower()
+        page.update()
+
+    url_input.on_change = on_url_change
 
     #日志 自动滚动到底部
     log_area = ft.ListView(expand=True, spacing=5, auto_scroll=True)
@@ -307,6 +399,8 @@ async def main_app(page: ft.Page):
             download_btn_container.disabled = False
             url_input.disabled = False
             format_dropdown.disabled = False
+            trim_start_field.disabled = False
+            trim_end_field.disabled = False
             playlist_checkbox.disabled = False
 
             if "Process finished with exit code 0" in msg:
@@ -339,18 +433,51 @@ async def main_app(page: ft.Page):
             page.update()
 
     def start_download(e):
-        url = url_input.value
-        #针对bilibili,douyin链接的处理
-        if current_tool_id in ["douyin","bilibili"]:
-            url = url[url.find("https"):]
-            idx = url.rfind("复")
-            if idx != -1:
-                url = url[:idx]
+        url = (url_input.value or "").strip()
+        #分享文案整段粘进来的处理。b站/抖音的分享文本长这样：
+        #"【标题】 https://v.douyin.com/xxxx 复制此链接打开抖音"，砍掉链接前后的中文废话。
+        #对YouTube这种本来就只有一条链接的，这几行等于什么也没做
+        start = url.find("https")
+        if start != -1:   #find找不到会返回-1，不判断的话 url[-1:] 会取到最后一个字符
+            url = url[start:]
+        idx = url.rfind("复")
+        if idx != -1:
+            url = url[:idx]
+        url = url.strip()
 
         if not url:
             log_message("ERROR", "URL cannot be empty")
             return
-            
+
+        #窗口ID -> 真正跑的引擎。视频窗口只有一个引擎；音乐窗口有俩，按域名分，
+        #认不出来就交给spotdl，它支持直接敲关键词搜歌
+        if current_tool_id == "video":
+            engine = "yt-dlp"
+        else:
+            engine = "scdl" if "soundcloud.com" in url.lower() else "spotdl"
+
+        #站点特殊规则(关代理/读cookie)，只对yt-dlp有意义
+        rule = site_rule(url) if engine == "yt-dlp" else {}
+
+        #裁剪时间开跑前先检查并规范化。中文输入法打出的全角冒号，yt-dlp只会甩个看不懂的
+        #报错，不如在这里说清楚；顺便把"1:30"这种偷懒写法补成 yt-dlp 认的 HH:MM:SS
+        trim_start, trim_end = "", ""
+        if engine == "yt-dlp":
+            trim_start, err = normalize_trim_time(trim_start_field.value, "Trim start")
+            if err:
+                log_message("ERROR", err)
+                return
+            trim_end, err = normalize_trim_time(trim_end_field.value, "Trim end")
+            if err:
+                log_message("ERROR", err)
+                return
+            #规范化结果写回输入框，用户能直接看到自己填的"1:30"变成了"00:01:30"
+            trim_start_field.value = trim_start
+            trim_end_field.value = trim_end
+            page.update()
+
+
+
         # Ensure target directory exists
         target_dir = default_download_path
             
@@ -370,13 +497,10 @@ async def main_app(page: ft.Page):
         download_btn_container.disabled = True
         url_input.disabled = True
         format_dropdown.disabled = True
+        trim_start_field.disabled = True
+        trim_end_field.disabled = True
         playlist_checkbox.disabled = True
         page.update()
-
-        # Map UI tool IDs to actual CLI engines 将界面工具ID映射至实际命令行引擎
-        engine = current_tool_id
-        if current_tool_id in ["tiktok", "facebook", "instagram", "twitter", "bilibili", "douyin"]:
-            engine = "yt-dlp"
 
         command = [engine]
         if engine == "yt-dlp":
@@ -387,6 +511,34 @@ async def main_app(page: ft.Page):
                 command.extend(["--merge-output-format", "mp4"])
             if playlist_checkbox.value:
                 command.extend(["-o", "anydl@sytrus - %(playlist)s/%(title)s.%(ext)s"])
+
+            #cookie：抖音要，从火狐现读，浏览器固定火狐(见 COOKIE_BROWSER)
+            if rule.get("cookies"):
+                command.extend(["--cookies-from-browser", COOKIE_BROWSER])
+
+            #国内站点强制直连。--proxy "" 是yt-dlp关代理的写法，
+            #不加的话系统代理(Clash等)会被自动套上，抖音会因境外IP返回403
+            if rule.get("direct"):
+                command.extend(["--proxy", ""])
+
+            #裁剪。trim_start/trim_end 是上面规范化过的，这里直接拼就行
+            if trim_start or trim_end:
+                command.extend(["--download-sections", f"*{trim_start or '00:00:00'}-{trim_end or 'inf'}"])
+                #裁一段必定走ffmpeg，而ffmpeg默认是info级别日志，会往stderr吐一大堆自报家门的话：
+                #"Metadata: / Stream #0:0 / Stream mapping: / Press [q] to stop / [libx264] using cpu
+                #capabilities"，重编码时还每半秒刷一行"frame= 289 fps= 60 q=28.0 size=..."。
+                #橙色堆满日志看着像报错，其实一条有用的都没有。压到warning级别，真警告和报错照旧。
+                #这些是ffmpeg直接写stderr的，yt-dlp不读也不解析(见downloader/external.py的FFmpegFD，
+                #它只等进程结束)，所以压掉不影响下载进度条。看进度条就行，别指望这期间的日志
+                command.extend(["--downloader-args", "ffmpeg:-loglevel warning"])
+
+                #关键帧重切。不加这个参数时yt-dlp是 -c copy 直接拷流，只能在关键帧上下刀：
+                #HEVC常用open GOP，切口那几个前导帧解码时依赖前面的帧，拷出来时间戳是负的
+                #(-6.23s这种)，播放器一律丢掉，开头就花/卡。加了就让ffmpeg重编码，刀口精确。
+                #代价：这一条视频从 4秒/8.6MB 变成 11秒/27MB，编码也从HEVC变H.264。
+                #只下音频时不加：音频流没这个问题，视频反正转完mp3就扔了，重编码纯浪费时间
+                if format_dropdown.value != "audio":
+                    command.extend(["--force-keyframes-at-cuts"])
         elif engine == "spotdl":
             if playlist_checkbox.value:
                 command.extend(["--output", "anydl@sytrus - {list-name}/{artists} - {title}.{output-ext}"])
@@ -492,14 +644,18 @@ async def main_app(page: ft.Page):
         search_border.border = ft.Border.all(2, t["color"])
         download_btn_container.bgcolor = t["color"]
         
-        # Tools using yt-dlp engine support format selection
-        if tool_id in ["yt-dlp", "tiktok", "facebook", "instagram", "twitter", "bilibili", "douyin"]:
-            format_dropdown.visible = True
-            format_dropdown.disabled = False
-        else:
-            format_dropdown.visible = False
-            
-        if tool_id == "spotdl":
+        #格式和裁剪只有视频窗口有，音乐那两个引擎(spotdl/scdl)不认这些参数
+        is_video = tool_id == "video"
+        format_dropdown.visible = is_video
+        format_dropdown.disabled = not is_video
+        trim_start_field.visible = is_video
+        trim_end_field.visible = is_video
+
+        #切换工具时清空裁剪输入
+        trim_start_field.value = ""
+        trim_end_field.value = ""
+
+        if tool_id == "music":
             current_conf = load_spotdl_config()
             if current_conf.get("client_id", "") and current_conf.get("client_id", "") != "5f573c9620494bae87890c0f08a60293":
                 spotify_api_info_text.value = "Currently using: Custom API"
@@ -508,6 +664,9 @@ async def main_app(page: ft.Page):
             spotify_api_info_text.visible = True
         else:
             spotify_api_info_text.visible = False
+
+        #抖音提示只在粘了抖音链接时才冒出来(见 url_input.on_change)，别的时候不占地方
+        douyin_cookie_hint.visible = False
 
         log_area.controls.clear()
         log_container.visible = False
@@ -551,7 +710,9 @@ async def main_app(page: ft.Page):
                 progress_container,
                 ft.Container(height=10),
                 options_row,
+                playlist_row,
                 spotify_api_info_text,
+                douyin_cookie_hint,
                 log_container
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -589,16 +750,9 @@ async def main_app(page: ft.Page):
             ft.Container(height=40),
             home_title,
             ft.Container(height=40),
-            ft.GridView(
-                expand=True,
-                runs_count=3,
-                max_extent=300,
-                child_aspect_ratio=1.3,
-                spacing=20,
-                run_spacing=20,
-                controls=cards,
-                padding=ft.Padding.only(left=40, right=40)
-            )
+            #就两张卡了，不用GridView——它按列宽铺，两张会全挤在左边。
+            #也别套wrap=True自动换行，Flet里Wrap的宽度是按"最宽那一行"算的，居中基准会跟着跑
+            ft.Row(cards, alignment=ft.MainAxisAlignment.CENTER, spacing=20)
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
     )
 
@@ -629,8 +783,8 @@ async def main_app(page: ft.Page):
         content=ft.Row([
             ft.Text("See repository at", size=12, color=ft.Colors.GREY_600),
             ft.TextButton(
-                "sytrusz/anydl",
-                url="https://github.com/sytrusz/anydl",
+                "hh12356/anydl",
+                url="https://github.com/hh12356/anydl",
                 style=ft.ButtonStyle(color="#21c25e", padding=ft.Padding.all(0))
             )
         ], alignment=ft.MainAxisAlignment.CENTER),
